@@ -31,8 +31,9 @@ function teardownSystemProxy() {
  * Initialization
  */
 
+var version = JSON.parse(fs.readFileSync(__dirname + '/package.json', 'utf8')).version;
 program
-  .version('0.1')
+  .version(version)
   .option('-n, --networkservice <service>', 'Service to proxy [Wi-Fi]', 'Wi-Fi')
   .option('-l, --listen <port>', 'Port to use for proxy [5000]', 5000)
   .option('-p, --plugins <plugins>', 'Comma separated list of plugins to load', list)
