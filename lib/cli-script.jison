@@ -7,8 +7,8 @@
 \s+                   return 'WHITESPACE';
 [^ '"\\]              return 'CHAR';
 "\\"                  return 'BACKSLASH';
-"\""                  return 'DQUOTE';
-"'"                   return 'SQUOTE';
+"\""                  return 'DOUBLEQUOTE';
+"'"                   return 'SINGLEQUOTE';
 <<EOF>>               return 'EOF';
 
 /lex
@@ -37,15 +37,15 @@ command
     ;
 
 arguments
-    : arguments WHITESPACE DQUOTE dquotedargument DQUOTE
+    : arguments WHITESPACE DOUBLEQUOTE dquotedargument DOUBLEQUOTE
         {$$.push($4);}
-    | arguments WHITESPACE SQUOTE squotedargument SQUOTE
+    | arguments WHITESPACE SINGLEQUOTE squotedargument SINGLEQUOTE
         {$$.push($4);}
     | arguments WHITESPACE argument
         {$$.push($3);}
-    | DQUOTE dquotedargument DQUOTE
+    | DOUBLEQUOTE dquotedargument DOUBLEQUOTE
         {$$ = [$2]}
-    | SQUOTE squotedargument SQUOTE
+    | SINGLEQUOTE squotedargument SINGLEQUOTE
         {$$ = [$2]}
     | argument
         {$$ = [$1]}
@@ -75,9 +75,9 @@ dquotedargument
 
 dquotedargumentchar
     : CHAR
-    | SQUOTE
+    | SINGLEQUOTE
     | WHITESPACE
-    | BACKSLASH DQUOTE
+    | BACKSLASH DOUBLEQUOTE
         {$$ = $2}
     | BACKSLASH CHAR
         {$$ = $2}
@@ -94,9 +94,9 @@ squotedargument
 
 squotedargumentchar
     : CHAR
-    | DQUOTE
+    | DOUBLEQUOTE
     | WHITESPACE
-    | BACKSLASH SQUOTE
+    | BACKSLASH SINGLEQUOTE
         {$$ = $2}
     | BACKSLASH CHAR
         {$$ = $2}

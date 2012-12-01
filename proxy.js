@@ -1,12 +1,13 @@
 var LocalContentServer = require('./lib/LocalContentServer')
-  , url = require('url')
-  , httpProxy = require('http-proxy')
+  , Proxy = require('./lib/Proxy')
+  , ScriptController = require('./lib/ScriptController')
   , path = require('path')
   , fs = require('fs')
   , program = require('commander')
   , spawn = require('child_process').spawn
   , readline = require('readline')
   , winston = require('winston')
+  , request = require('request')
   , ansi = require('ansi')
   , cursor = ansi(process.stdout);
 
@@ -38,9 +39,8 @@ program
   .option('-s, --stopped', 'Start without proxying enabled')
   .parse(process.argv);
 
-if (!program.stopped) {
-  setupSystemProxy();
-}
+program.plugins = program.plugins || [];
+if (!program.stopped) setupSystemProxy();
 
 var logger = new (winston.Logger)({
   transports: [
@@ -48,73 +48,58 @@ var logger = new (winston.Logger)({
   ]
 });
 
-/**
- * Proxy
- */
-
-var server = httpProxy.createServer(function (req, res, proxy) {
-  // logger.info('Proxying request to "%s".', [req.url]);
-  req.pause();
-  var parsedUrl = url.parse(req.url);
-  var domainFolder = path.normalize(path.join(process.cwd(), parsedUrl.hostname));
-  fs.exists(domainFolder, function(exists) {
-    if (exists) {
-      // Domain folder exists, so allow the application to process the request
-      req.proxyTools = {
-        parsedUrl: parsedUrl,
-        proxy: proxy,
-        pathPrefix: domainFolder
-      };
-      localContentServer.process(req, res);
-    }
-    else {
-      // Domain folder does not exist, proxy straight to site
-      req.resume();
-      proxy.proxyRequest(req, res, {
-        host: parsedUrl.hostname,
-        port: parsedUrl.port || 80
-      });
-    }
-  });
-});
-server.listen(program.listen);
+scriptController = new ScriptController(logger);
 
 /**
  * Local server pipeline
  */
 
 var localContentServer = new LocalContentServer();
-var pluginDirectiveHandlers = [];
 
-// Setup directive postprocessing handler on the content server
-localContentServer.addPostProcessHandler(function(req, res, data) {
-  // Process directives
-  return data.replace(/\/\/@([^\()]*)\(([^)]*)\)/g, function(match, directive, args) {
-    directive = directive.toUpperCase();
-    for (var i = 0, l = directiveHandlers.length; i < l; ++i) {
-      var handler = directiveHandlers[i];
-      var res = handler(directive, arg, filePath, data);
-      if (typeof res !== 'undefined') return res;
-    }
-    return '';
-  });
-});
+// Load standard plugins
+program.plugins.unshift(require('./lib/standard'));
 
 // Process all plugins
 if (program.plugins) {
   for (var i = 0, l = program.plugins.length; i < l; ++i) {
     var pluginPath = program.plugins[i];
-    var plugin = require(path.join(process.cwd(), pluginPath));
-    logger.info('Attaching plugin "%s".', [plugin.name || pluginPath])
+    var plugin = typeof pluginPath == 'object' ? pluginPath : require(path.join(process.cwd(), pluginPath));
+    logger.info('Attaching plugin: %s.', [plugin.name || pluginPath])
     if (plugin.init) plugin.init(server);
     if (plugin.attach) plugin.attach(localContentServer.getApp());
-    if (plugin.directive) pluginDirectiveHandlers.push(plugin.directive);
-    if (plugin.postprocess) localContentServer.addPostProcessHandler(plugin.postprocess);
+    if (plugin.postProcess) localContentServer.addPostProcessHandler(plugin.postProcess);
+    if (plugin.getScriptApi) {
+      var api = plugin.getScriptApi();
+      if (api) {
+        var keys = Object.keys(api);
+        for (var j = 0, k = keys.length; j < k; ++j) {
+          var key = keys[j];
+          if (!api.hasOwnProperty(key)) continue;
+          scriptController.registerCommandHandler(key, api[key]);
+        }
+      }
+    }
   }
 }
 
 // Instruct content server to initialize it's default pipeline
 localContentServer.initializePipeline();
+
+/**
+ * Proxy
+ */
+
+var proxy = new Proxy(logger);
+proxy.initialize(program.listen, function(req, res, parsedUrl, fallback) {
+  var domainContentPath = path.normalize(path.join(process.cwd(), parsedUrl.hostname));
+  fs.exists(domainContentPath, function(exists) {
+    if (exists) {
+      // Domain folder exists, so allow the application to process the request
+      localContentServer.process(req, res, domainContentPath, fallback);
+    }
+    else fallback();
+  });
+});
 
 /**
  * Console interface
@@ -139,7 +124,10 @@ cli.prompt();
 
 cli.on('line', function(line) {
   line = line.trim();
-  cli.prompt();
+  scriptController.executeScript(line, function(error) {
+    if (error) logger.info(error.stack);
+    cli.prompt();
+  });
 });
 
 cli.on('close', function () {
@@ -149,9 +137,9 @@ cli.on('close', function () {
 });
 
 process.on('uncaughtException', function(err) {
-  logger.error('Uncaught Exception, shutting down.');
-  logger.error(err.message);
-  logger.error(err.stack);
+  logger.info('Uncaught Exception, shutting down.');
+  logger.info(err.message);
+  logger.info(err.stack);
   teardownSystemProxy();
   process.exit(-1);
 });

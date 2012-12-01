@@ -8,24 +8,21 @@ var path = require('path')
  * Client side code
  */
 
-var clientCode = '<script type="text/javascript">\n' +
-                 '(function($) {\n' +
-                 '  $("link[data-autoupdate]").each(function() {\n' +
-                 '    var $el = $(this);\n' +
-                 '    var path = $el.attr("src") || $el.attr("href");\n' +
-                 '    var sse  = new EventSource("/autoupdater?path=" + path);\n' +
-                 '    sse.addEventListener("changed", function (event) {\n' +
-                 '      reloadStyle($el);\n' +
-                 '    });\n' +
-                 '  });\n' +
-                 '})(jQuery);\n' +
-                 'function reloadStyle($el) {\n' +
-                 '  var src = $el.attr("href");\n' +
-                 '  if (src.indexOf("x=") != -1) src = src.replace(/(x=[^&]*|$)/, "x=" + new Date().getTime());\n' +
-                 '  else if (src.indexOf("?") != -1) src += "&x=" + new Date().getTime();\n' +
-                 '  else src += "?x=" + new Date().getTime();\n' +
-                 '  $el.attr("href", src);\n' +
-                 '}\n' +
+var clientCode = '<script type="text/javascript">' +
+                 'function reloadStyle(path, sheet) {' +
+                 '  if (path.indexOf("_autoupdate=") != -1) path = path.replace(/(_autoupdate=[^&]*|$)/, "_autoupdate=" + new Date().getTime());' +
+                 '  else if (path.indexOf("?") != -1) path += "&_autoupdate=" + new Date().getTime();' +
+                 '  else path += "?_autoupdate=" + new Date().getTime();' +
+                 '  sheet.href = path;' +
+                 '};' +
+                 'var sheets = Array.prototype.slice.call(document.getElementsByTagName("link"), 0).filter(function(x) { return x.rel == "stylesheet"; });' +
+                 'sheets.forEach(function(sheet) {' +
+                 '  var path = sheet.href;' +
+                 '  var sse  = new EventSource("/autoupdater?path=" + path);' +
+                 '  sse.addEventListener("changed", function(event) {' +
+                 '    reloadStyle(path, sheet);' +
+                 '  });' +
+                 '});' +
                  '</script>';
 
 /**
@@ -37,20 +34,29 @@ module.exports = {
 
   attach: function(app) {
     app.all('/autoupdater', function(req, res, next) {
-      if (!req.proxyTools) return next();
-      var parsedUrl = req.proxyTools.parsedUrl;
+      var parsedUrl = url.parse(req.url);
       var query = querystring.parse(parsedUrl.query);
-      if (!query.path) return next();
+      if (!query.path) {
+        res.status(404);
+        res.end();
+        return;
+      }
 
       var client = new SSEClient(req, res);
       client.initialize();
 
       var pathUrl = url.parse(query.path);
-      var filePath = path.normalize(path.join(req.proxyTools.pathPrefix, pathUrl.path));
+      var domainContentPath = path.normalize(path.join(process.cwd(), parsedUrl.hostname)); // todo: move out
+      var filePath = path.normalize(path.join(domainContentPath, pathUrl.path));
 
-      if (!fs.existsSync(filePath)) return next();
+      if (!fs.existsSync(filePath)) {
+        res.status(404);
+        res.end();
+        return;
+      }
       var listener = function(curr, prev) {
         if (curr.mtime != prev.mtime) {
+          console.log('File changed: "%s", notifying clients.', query.path);
           client.send('changed', query.path);
         }
       }
@@ -62,7 +68,7 @@ module.exports = {
   },
 
   // todo: should be able to restrict to certain file type
-  postprocess: function(req, res, data) {
+  postProcess: function(req, res, data) {
     if (!req.headers['referer'] || req.headers['referer'] == req.url) {
       return data + '\n' + clientCode;
     }
