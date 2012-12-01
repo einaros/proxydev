@@ -120,10 +120,11 @@ function fixStdoutFor(cli) {
   process.__defineGetter__('stdout', function() { return newStdout; });
 }
 
-var cli = readline.createInterface(process.stdin, process.stdout);
-fixStdoutFor(cli);
-cli.setPrompt('> ');
-cli.prompt();
+var cli = readline.createInterface({
+  input: process.stdin,
+  output: process.stdout,
+  completer: function(line) { return scriptController.tabComplete(line); }
+});
 
 cli.on('line', function(line) {
   line = line.trim();
@@ -138,6 +139,10 @@ cli.on('close', function () {
   teardownSystemProxy();
   process.exit();
 });
+
+fixStdoutFor(cli);
+cli.setPrompt('> ');
+cli.prompt();
 
 process.on('uncaughtException', function(err) {
   logger.info('Uncaught Exception, shutting down.');
