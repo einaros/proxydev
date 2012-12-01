@@ -1,0 +1,24 @@
+{
+  "name": "proxywork",
+  "version": "0.0.0",
+  "description": "ERROR: No README.md file found!",
+  "main": "proxy.js",
+  "directories": {
+    "test": "test"
+  },
+  "dependencies": {
+    "commander": "~1.1.1",
+    "express": "~3.0.3",
+    "http-proxy": "~0.8.5",
+    "sse": ">=0.0.5",
+    "ansi": "~0.1.2",
+    "winston": "~0.6.2"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": "",
+  "author": "",
+  "license": "BSD"
+}
