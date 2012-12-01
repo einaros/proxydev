@@ -1,6 +1,6 @@
 {
   "name": "proxydev",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Proxy tool for rapid web development spiking",
   "main": "proxy.js",
   "directories": {

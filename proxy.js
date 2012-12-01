@@ -58,6 +58,8 @@ var localContentServer = new LocalContentServer();
 
 // Load standard plugins
 program.plugins.unshift(require('./lib/standard'));
+program.plugins.unshift(require('./plugins/grab'));
+program.plugins.unshift(require('./plugins/autoupdater'));
 
 // Process all plugins
 if (program.plugins) {
