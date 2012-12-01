@@ -1,4 +1,4 @@
-# devproxy
+# proxydev
 
 Proxy tool for rapid web development spiking.
 

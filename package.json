@@ -1,5 +1,5 @@
 {
-  "name": "devproxy",
+  "name": "proxydev",
   "version": "0.0.1",
   "description": "Proxy tool for rapid web development spiking",
   "main": "proxy.js",
