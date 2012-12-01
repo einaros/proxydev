@@ -1,10 +1,13 @@
 {
   "name": "devproxy",
-  "version": "0.0.0",
-  "description": "ERROR: No README.md file found!",
+  "version": "0.0.1",
+  "description": "Proxy tool for rapid web development spiking",
   "main": "proxy.js",
   "directories": {
     "test": "test"
+  },
+  "bin": {
+    "devproxy": "./bin/devproxy"
   },
   "dependencies": {
     "commander": "~1.1.1",
