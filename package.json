@@ -14,9 +14,13 @@
     "ansi": "~0.1.2",
     "winston": "~0.6.2"
   },
-  "devDependencies": {},
+  "devDependencies": {
+    "jison": "~0.3.12",
+    "mocha": "~1.7.3"
+  },
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build": "cd lib && ../node_modules/.bin/jison cli-script.jison"
   },
   "repository": "",
   "author": "",
