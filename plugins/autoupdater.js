@@ -37,16 +37,16 @@ module.exports = {
 
   attach: function(app) {
     app.all('/autoupdater', function(req, res, next) {
-      if (!req.proxy) return next();
-      var u = req.proxy.url;
-      var query = querystring.parse(u.query);
+      if (!req.proxyTools) return next();
+      var parsedUrl = req.proxyTools.parsedUrl;
+      var query = querystring.parse(parsedUrl.query);
       if (!query.path) return next();
 
       var client = new SSEClient(req, res);
       client.initialize();
 
       var pathUrl = url.parse(query.path);
-      var filePath = path.normalize(path.join(process.cwd(), pathUrl.path));
+      var filePath = path.normalize(path.join(req.proxyTools.pathPrefix, pathUrl.path));
 
       if (!fs.existsSync(filePath)) return next();
       var listener = function(curr, prev) {
@@ -63,7 +63,7 @@ module.exports = {
 
   // todo: should be able to restrict to certain file type
   postprocess: function(req, res, data) {
-    if (!req.headers['referer']) {
+    if (!req.headers['referer'] || req.headers['referer'] == req.url) {
       return data + '\n' + clientCode;
     }
   },
