@@ -46,6 +46,8 @@ var api = {
   },
   'grab': {
     usage: 'grab <url> [outputpath]',
+    description: 'Downloads a file, and by default places it so that any intercepted request to that file will be served by the proxy.\n\n' +
+                 'This enables easy manipulation to, and testing of, web resources.',
     handler: function(logger, callback, fetchUrl, output) {
       if (!fetchUrl) {
         logger.warn('Usage: ', api.grab.usage);
