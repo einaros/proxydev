@@ -4,28 +4,9 @@ var LocalContentServer = require('./lib/LocalContentServer')
   , path = require('path')
   , fs = require('fs')
   , program = require('commander')
-  , spawn = require('child_process').spawn
   , readline = require('readline')
   , winston = require('winston')
-  , request = require('request')
-  , ansi = require('ansi')
-  , cursor = ansi(process.stdout);
-
-/**
- * Internal API
- */
-
-function list(val) {
-  return val.split(',');
-}
-
-function setupSystemProxy() {
-  spawn('networksetup', ['-setwebproxy', program.networkservice, 'localhost', program.listen, 'off']);
-}
-
-function teardownSystemProxy() {
-  spawn('networksetup', ['-setwebproxystate', program.networkservice, 'off']);
-}
+  , request = require('request');
 
 /**
  * Initialization
@@ -36,12 +17,11 @@ program
   .version(version)
   .option('-n, --networkservice <service>', 'Service to proxy [Wi-Fi]', 'Wi-Fi')
   .option('-l, --listen <port>', 'Port to use for proxy [5000]', 5000)
-  .option('-p, --plugins <plugins>', 'Comma separated list of plugins to load', list)
+  .option('-p, --plugins <plugins>', 'Comma separated list of plugins to load', function(v) { return v.split(','); })
   .option('-s, --stopped', 'Start without proxying enabled')
   .parse(process.argv);
 
 program.plugins = program.plugins || [];
-if (!program.stopped) setupSystemProxy();
 
 var logger = new (winston.Logger)({
   transports: [
@@ -55,25 +35,33 @@ var logger = new (winston.Logger)({
 
 scriptController = new ScriptController(logger);
 
+scriptController.registerCommandHandler('.help', {
+  usage: '.help',
+  handler: function(logger, callback) {
+    logger.info('Available commands:');
+    logger.info(scriptController.renderHelp(70));
+  }
+});
 scriptController.registerCommandHandler('.exit', {
   usage: '.exit',
   handler: function(logger, callback) {
     process.exit();
   }
 });
-scriptController.registerCommandHandler('.help', {
-  usage: '.help',
+scriptController.registerCommandHandler('.start', {
+  usage: '.start',
+  description: 'Installs system proxy.',
   handler: function(logger, callback) {
-    var secondColPos = 30;
-    logger.info('Available commands:');
-    logger.info('%s %s %s', ['COMMAND', new Array(secondColPos - 'Command'.length).join(' '), 'USAGE']);
-    var scriptCommands = scriptController.getCommands();
-    var names = Object.keys(scriptCommands);
-    for (var i = 0, l = names.length; i < l; ++i) {
-      var name = names[i];
-      var desc = scriptCommands[name];
-      logger.info('%s %s %s', [name, new Array(secondColPos - name.length).join(' '), desc.usage]);
-    }
+    logger.info('Installing system proxy.');
+    proxy.setupSystemProxy(program.networkservice, callback);
+  }
+});
+scriptController.registerCommandHandler('.stop', {
+  usage: '.stop',
+  description: 'Uninstalls system proxy.',
+  handler: function(logger, callback) {
+    logger.info('Uninstalling system proxy.');
+    proxy.teardownSystemProxy(program.networkservice, callback);
   }
 });
 
@@ -117,8 +105,8 @@ localContentServer.initializePipeline();
  * Proxy
  */
 
-var proxy = new Proxy(logger);
-proxy.initialize(program.listen, function(req, res, parsedUrl, fallback) {
+var proxy = new Proxy(program.listen, logger);
+proxy.initialize(function(req, res, parsedUrl, fallback) {
   var domainContentPath = path.normalize(path.join(process.cwd(), parsedUrl.hostname));
   fs.exists(domainContentPath, function(exists) {
     if (exists) {
@@ -128,6 +116,8 @@ proxy.initialize(program.listen, function(req, res, parsedUrl, fallback) {
     else fallback();
   });
 });
+
+if (!program.stopped) proxy.setupSystemProxy(program.networkservice);
 
 /**
  * Console interface
@@ -161,7 +151,7 @@ cli.on('line', function(line) {
 
 cli.on('close', function () {
   logger.info('Shutting down.');
-  teardownSystemProxy();
+  proxy.teardownSystemProxy(program.networkservice);
   process.exit();
 });
 
@@ -173,6 +163,6 @@ process.on('uncaughtException', function(err) {
   logger.info('Uncaught Exception, shutting down.');
   logger.info(err.message);
   logger.info(err.stack);
-  teardownSystemProxy();
+  proxy.teardownSystemProxy(program.networkservice);
   process.exit(-1);
 });

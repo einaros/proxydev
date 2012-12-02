@@ -20,6 +20,7 @@ var headers = {};
 var api = {
   'set-grab-header': {
     usage: 'set-grab-header <headername> [value]',
+    description: 'Sets (or unsets if no value is supplied) a header to be transmitted with the "grab" command.',
     handler: function(logger, callback, headername, value) {
       if (!headername) {
         logger.warn('Usage: ', api['set-grab-header'].usage);
@@ -38,6 +39,7 @@ var api = {
   },
   'get-grab-headers': {
     usage: 'get-grab-headers',
+    description: 'Retrieves a header value to be transmitted with the "grab" command.',
     handler: function(logger, callback, headername, value) {
       logger.info('Headers: %s', [JSON.stringify(headers, null, 2)]);
     }
