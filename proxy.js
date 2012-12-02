@@ -45,7 +45,7 @@ scriptController.registerCommandHandler('.help', {
 scriptController.registerCommandHandler('.exit', {
   usage: '.exit',
   handler: function(logger, callback) {
-    process.exit();
+    cli.close();
   }
 });
 scriptController.registerCommandHandler('.start', {
