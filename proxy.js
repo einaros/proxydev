@@ -49,7 +49,33 @@ var logger = new (winston.Logger)({
   ]
 });
 
+/**
+ * Script Controller initialization
+ */
+
 scriptController = new ScriptController(logger);
+
+scriptController.registerCommandHandler('.exit', {
+  usage: '.exit',
+  handler: function(logger, callback) {
+    process.exit();
+  }
+});
+scriptController.registerCommandHandler('.help', {
+  usage: '.help',
+  handler: function(logger, callback) {
+    var secondColPos = 30;
+    logger.info('Available commands:');
+    logger.info('%s %s %s', ['COMMAND', new Array(secondColPos - 'Command'.length).join(' '), 'USAGE']);
+    var scriptCommands = scriptController.getCommands();
+    var names = Object.keys(scriptCommands);
+    for (var i = 0, l = names.length; i < l; ++i) {
+      var name = names[i];
+      var desc = scriptCommands[name];
+      logger.info('%s %s %s', [name, new Array(secondColPos - name.length).join(' '), desc.usage]);
+    }
+  }
+});
 
 /**
  * Local server pipeline
@@ -58,7 +84,6 @@ scriptController = new ScriptController(logger);
 var localContentServer = new LocalContentServer();
 
 // Load standard plugins
-program.plugins.unshift(require('./lib/standard'));
 program.plugins.unshift(require('./plugins/grab'));
 program.plugins.unshift(require('./plugins/autoupdater'));
 
